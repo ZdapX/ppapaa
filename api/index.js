@@ -6,7 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 const { connectDB, Media } = require('../db');
 const cloudinary = require('cloudinary').v2;
 
-// Cloudinary config (isi di .env)
+// Cloudinary config
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -22,11 +22,10 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../views'));
 app.use(express.urlencoded({ extended: true }));
 
-// Pake memory storage (nggak nyentuh disk)
 const storage = multer.memoryStorage();
 const upload = multer({ 
   storage, 
-  limits: { fileSize: 50 * 1024 * 1024 } // 50MB max
+  limits: { fileSize: 50 * 1024 * 1024 }
 });
 
 const getFileType = (mime) => {
@@ -67,10 +66,12 @@ app.post('/upload', upload.single('media'), async (req, res) => {
 
     const cloudResult = await uploadPromise;
     const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+    
+    // ✅ FIX: Simpan public_id asli dari Cloudinary
     const fileUrl = `${baseUrl}/f/${cloudResult.public_id}`;
 
     const mediaDoc = new Media({
-      filename: cloudResult.public_id,
+      filename: cloudResult.public_id,  // ini akan berisi "media_to_url/uuid"
       originalName: file.originalname,
       mimeType: file.mimetype,
       fileType: fileType,
@@ -98,11 +99,13 @@ app.get('/upload/:id', async (req, res) => {
   }
 });
 
-app.get('/f/:filename', async (req, res) => {
+// ✅ FIX: Route untuk nampilin file berdasarkan public_id
+app.get('/f/:folder/:uuid', async (req, res) => {
   try {
-    const { filename } = req.params;
-    const media = await Media.findOne({ filename });
-
+    const { folder, uuid } = req.params;
+    const fullPublicId = `${folder}/${uuid}`;
+    
+    const media = await Media.findOne({ filename: fullPublicId });
     if (!media) return res.status(404).send('File tidak ditemukan');
 
     res.render('file', {
@@ -110,6 +113,41 @@ app.get('/f/:filename', async (req, res) => {
       fileUrl: media.cloudUrl,
       rawUrl: media.cloudUrl
     });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error');
+  }
+});
+
+// ✅ Juga support format lama (tanpa folder)
+app.get('/f/:filename', async (req, res) => {
+  try {
+    const { filename } = req.params;
+    
+    const media = await Media.findOne({ filename: filename });
+    if (!media) return res.status(404).send('File tidak ditemukan di database');
+
+    res.render('file', {
+      media,
+      fileUrl: media.cloudUrl,
+      rawUrl: media.cloudUrl
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error');
+  }
+});
+
+app.get('/download/:folder/:uuid', async (req, res) => {
+  try {
+    const { folder, uuid } = req.params;
+    const fullPublicId = `${folder}/${uuid}`;
+    
+    const media = await Media.findOne({ filename: fullPublicId });
+    if (!media) return res.status(404).send('File not found');
+    
+    const downloadUrl = media.cloudUrl.replace('/upload/', '/upload/fl_attachment/');
+    res.redirect(downloadUrl);
   } catch (err) {
     res.status(500).send('Error');
   }
@@ -120,7 +158,6 @@ app.get('/download/:filename', async (req, res) => {
     const media = await Media.findOne({ filename: req.params.filename });
     if (!media) return res.status(404).send('File not found');
     
-    // Redirect ke Cloudinary dengan flag download
     const downloadUrl = media.cloudUrl.replace('/upload/', '/upload/fl_attachment/');
     res.redirect(downloadUrl);
   } catch (err) {
