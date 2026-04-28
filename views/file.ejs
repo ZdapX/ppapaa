@@ -82,10 +82,31 @@
       text-decoration: none;
       font-weight: 500;
       display: inline-block;
+      transition: background 0.2s;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn:hover {
+      background: #005fc5;
     }
 
     .btn-secondary {
       background: #6e6e73;
+    }
+
+    .btn-secondary:hover {
+      background: #555559;
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid #007aff;
+      color: #007aff;
+    }
+
+    .btn-outline:hover {
+      background: #007aff10;
     }
 
     .meta {
@@ -96,9 +117,42 @@
       border-top: 1px solid #e9e9ef;
     }
 
+    .meta-row {
+      margin-bottom: 8px;
+    }
+
     a {
       color: #007aff;
       text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .url-box {
+      background: #f5f5f7;
+      padding: 12px;
+      border-radius: 10px;
+      font-family: monospace;
+      font-size: 13px;
+      word-break: break-all;
+      margin-top: 12px;
+    }
+
+    .copy-btn {
+      background: #e9e9ef;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      margin-top: 8px;
+      color: #1d1d1f;
+    }
+
+    .copy-btn:hover {
+      background: #d9d9df;
     }
   </style>
 </head>
@@ -109,36 +163,82 @@
 
       <div class="media-container">
         <% if (media.fileType === 'image') { %>
-          <img src="<%= filePath %>" alt="<%= media.originalName %>">
+          <img src="<%= media.cloudUrl %>" alt="<%= media.originalName %>" loading="lazy">
         <% } else if (media.fileType === 'video') { %>
-          <video controls>
-            <source src="<%= filePath %>" type="<%= media.mimeType %>">
+          <video controls poster="<%= media.cloudUrl %>/thumb.jpg">
+            <source src="<%= media.cloudUrl %>" type="<%= media.mimeType %>">
+            Browser tidak support video tag.
           </video>
         <% } else if (media.fileType === 'audio') { %>
           <audio controls style="width: 100%;">
-            <source src="<%= filePath %>" type="<%= media.mimeType %>">
+            <source src="<%= media.cloudUrl %>" type="<%= media.mimeType %>">
+            Browser tidak support audio tag.
           </audio>
         <% } else { %>
           <div class="file-placeholder">
-            <div>📄 File dokumentasi</div>
-            <div style="margin-top: 16px; font-size: 14px;"><%= media.mimeType %></div>
+            <div style="font-size: 48px; margin-bottom: 16px;">📄</div>
+            <div>File dokumentasi</div>
+            <div style="margin-top: 8px; font-size: 14px; color: #6e6e73;">
+              <%= media.mimeType %>
+            </div>
           </div>
         <% } %>
       </div>
 
       <div class="btn-group">
         <a href="/download/<%= media.filename %>" class="btn">Download</a>
-        <a href="<%= fileUrl %>" class="btn btn-secondary" target="_blank">Raw file</a>
+        <a href="<%= media.cloudUrl %>" class="btn btn-secondary" target="_blank">Open Raw</a>
+        <a href="/" class="btn btn-outline">Upload Lagi</a>
       </div>
 
       <div class="meta">
-        <div>📁 Nama asli: <%= media.originalName %></div>
-        <div>📦 Tipe: <%= media.mimeType %></div>
-        <div>💾 Ukuran: <%= (media.size / 1024).toFixed(2) %> KB</div>
-        <div>📅 Upload: <%= media.uploadDate.toLocaleString() %></div>
-        <div>🔗 Link langsung: <a href="<%= fileUrl %>" target="_blank"><%= fileUrl %></a></div>
+        <div class="meta-row">
+          <strong>Nama asli:</strong> <%= media.originalName %>
+        </div>
+        <div class="meta-row">
+          <strong>Tipe file:</strong> <%= media.mimeType %>
+        </div>
+        <div class="meta-row">
+          <strong>Ukuran:</strong> <%= (media.size / 1024).toFixed(2) %> KB
+          <% if (media.size > 1024 * 1024) { %>
+            (<%= (media.size / (1024 * 1024)).toFixed(2) %> MB)
+          <% } %>
+        </div>
+        <div class="meta-row">
+          <strong>Kategori:</strong> <%= media.fileType %>
+        </div>
+        <div class="meta-row">
+          <strong>Tanggal upload:</strong> <%= media.uploadDate.toLocaleString('id-ID') %>
+        </div>
+        <div class="meta-row">
+          <strong>ID File:</strong> <%= media.filename %>
+        </div>
+        
+        <div style="margin-top: 16px;">
+          <strong>Shareable Link:</strong>
+          <div class="url-box" id="shareUrl">
+            <%= media.url %>
+          </div>
+          <button class="copy-btn" onclick="copyToClipboard()">Salin link</button>
+        </div>
       </div>
     </div>
   </div>
+
+  <script>
+    function copyToClipboard() {
+      const urlText = document.getElementById('shareUrl').innerText;
+      navigator.clipboard.writeText(urlText).then(() => {
+        const btn = document.querySelector('.copy-btn');
+        const originalText = btn.innerText;
+        btn.innerText = 'Copied!';
+        setTimeout(() => {
+          btn.innerText = originalText;
+        }, 2000);
+      }).catch(err => {
+        alert('Gagal menyalin link');
+      });
+    }
+  </script>
 </body>
 </html>
