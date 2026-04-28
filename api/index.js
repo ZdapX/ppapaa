@@ -3,8 +3,15 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
-const fs = require('fs');
 const { connectDB, Media } = require('../db');
+const cloudinary = require('cloudinary').v2;
+
+// Cloudinary config (isi di .env)
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,22 +21,13 @@ connectDB();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../views'));
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static('public'));
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../uploads');
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const uniqueName = `${uuidv4()}${ext}`;
-    cb(null, uniqueName);
-  }
+// Pake memory storage (nggak nyentuh disk)
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage, 
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB max
 });
-
-const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } });
 
 const getFileType = (mime) => {
   if (mime.startsWith('image/')) return 'image';
@@ -50,16 +48,35 @@ app.post('/upload', upload.single('media'), async (req, res) => {
 
     const file = req.file;
     const fileType = getFileType(file.mimetype);
+    
+    // Upload ke Cloudinary
+    const uploadPromise = new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'auto',
+          public_id: `${uuidv4()}`,
+          folder: 'media_to_url'
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      uploadStream.end(file.buffer);
+    });
+
+    const cloudResult = await uploadPromise;
     const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
-    const fileUrl = `${baseUrl}/f/${file.filename}`;
+    const fileUrl = `${baseUrl}/f/${cloudResult.public_id}`;
 
     const mediaDoc = new Media({
-      filename: file.filename,
+      filename: cloudResult.public_id,
       originalName: file.originalname,
       mimeType: file.mimetype,
       fileType: fileType,
       size: file.size,
-      url: fileUrl
+      url: fileUrl,
+      cloudUrl: cloudResult.secure_url
     });
 
     await mediaDoc.save();
@@ -67,7 +84,7 @@ app.post('/upload', upload.single('media'), async (req, res) => {
     res.redirect(`/upload/${mediaDoc._id}`);
   } catch (err) {
     console.error(err);
-    res.status(500).send('Gagal upload file');
+    res.status(500).send(`Upload gagal: ${err.message}`);
   }
 });
 
@@ -88,32 +105,27 @@ app.get('/f/:filename', async (req, res) => {
 
     if (!media) return res.status(404).send('File tidak ditemukan');
 
-    const filePath = path.join(__dirname, '../uploads', filename);
-    if (!fs.existsSync(filePath)) return res.status(404).send('File fisik tidak ada');
-
     res.render('file', {
       media,
-      fileUrl: `${process.env.BASE_URL || `http://localhost:${PORT}`}/f/${filename}`,
-      filePath: `/raw/${filename}`
+      fileUrl: media.cloudUrl,
+      rawUrl: media.cloudUrl
     });
   } catch (err) {
     res.status(500).send('Error');
   }
 });
 
-app.get('/raw/:filename', async (req, res) => {
-  const filePath = path.join(__dirname, '../uploads', req.params.filename);
-  if (!fs.existsSync(filePath)) return res.status(404).send('File not found');
-  res.sendFile(filePath);
-});
-
 app.get('/download/:filename', async (req, res) => {
-  const filePath = path.join(__dirname, '../uploads', req.params.filename);
-  if (!fs.existsSync(filePath)) return res.status(404).send('File not found');
-  
-  const media = await Media.findOne({ filename: req.params.filename });
-  const originalName = media ? media.originalName : req.params.filename;
-  res.download(filePath, originalName);
+  try {
+    const media = await Media.findOne({ filename: req.params.filename });
+    if (!media) return res.status(404).send('File not found');
+    
+    // Redirect ke Cloudinary dengan flag download
+    const downloadUrl = media.cloudUrl.replace('/upload/', '/upload/fl_attachment/');
+    res.redirect(downloadUrl);
+  } catch (err) {
+    res.status(500).send('Error');
+  }
 });
 
 app.listen(PORT, () => {
