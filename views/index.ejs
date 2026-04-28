@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Media to URL</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 48px 24px;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 20px;
+      padding: 32px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      border: 1px solid #e9e9ef;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      letter-spacing: -0.3px;
+    }
+
+    .subtitle {
+      color: #6e6e73;
+      font-size: 16px;
+      margin-bottom: 32px;
+    }
+
+    .upload-area {
+      border: 2px dashed #c6c6c8;
+      border-radius: 16px;
+      padding: 48px 24px;
+      text-align: center;
+      background: #fbfbfd;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .upload-area:hover {
+      border-color: #007aff;
+      background: #f5f5ff;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .upload-label {
+      display: inline-block;
+      background: #007aff;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+      border: none;
+      font-size: 16px;
+    }
+
+    .upload-label:hover {
+      background: #005fc5;
+    }
+
+    .file-info {
+      margin-top: 20px;
+      font-size: 14px;
+      color: #6e6e73;
+    }
+
+    .submit-btn {
+      width: 100%;
+      background: #1d1d1f;
+      color: white;
+      border: none;
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 20px;
+      transition: background 0.2s;
+    }
+
+    .submit-btn:hover {
+      background: #000000;
+    }
+
+    hr {
+      margin: 32px 0;
+      border: none;
+      border-top: 1px solid #e9e9ef;
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 14px;
+      color: #8e8e93;
+      margin-top: 32px;
+    }
+
+    a {
+      color: #007aff;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>Media to URL</h1>
+      <p class="subtitle">Upload image, video, audio, atau file → dapatkan link publik</p>
+
+      <form action="/upload" method="post" enctype="multipart/form-data" id="uploadForm">
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+          <div class="upload-label">Pilih file</div>
+          <input type="file" name="media" id="fileInput" required>
+          <div class="file-info" id="fileName">Belum ada file dipilih</div>
+        </div>
+        <button type="submit" class="submit-btn">Upload</button>
+      </form>
+
+      <hr>
+
+      <div class="footer">
+        Supported: image, video, audio, document (max 100MB)
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const fileNameSpan = document.getElementById('fileName');
+
+    fileInput.addEventListener('change', function() {
+      if (this.files && this.files[0]) {
+        fileNameSpan.textContent = this.files[0].name;
+      } else {
+        fileNameSpan.textContent = 'Belum ada file dipilih';
+      }
+    });
+  </script>
+</body>
+</html>
